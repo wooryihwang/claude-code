@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>보석 맞추기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: one centred column — brass score plaques above a velvet jeweller's tray, the gem tally and controls below */
+:root{
+  --ink:#130b12;
+  --velvet:#33152a;
+  --velvet-deep:#220d1c;
+  --brass:#e2b65c;
+  --brass-dim:#8b6a2e;
+  --cream:#f4e8d0;
+  --muted:#b9a08a;
+  --warn:#ff7a6b;
+  --display:"Do Hyeon","Black Han Sans","Malgun Gothic",system-ui,sans-serif;
+  --body:"Gowun Dodum","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  color-scheme:dark;
+}
+html,body{min-height:100%}
+body{
+  background:radial-gradient(120% 70% at 50% 0%, var(--velvet-deep) 0%, var(--ink) 70%) var(--ink);
+  background-color:var(--ink);
+  color:var(--cream);
+  font-family:var(--body);
+  font-size:15px;
+}
+.wrap{
+  max-width:540px;margin:0 auto;
+  padding-block:20px 36px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:16px;
+}
+header{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+h1{
+  margin:0;font-family:var(--display);font-weight:400;font-size:2.4rem;letter-spacing:.04em;
+  color:var(--brass);display:flex;align-items:center;gap:10px;text-wrap:balance;
+  text-shadow:0 2px 0 #00000080;
+}
+h1 svg{width:36px;height:36px}
+.sub{margin:0;color:var(--muted);font-size:.92rem}
+
+.hud{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.plaque{
+  border:1px solid var(--brass-dim);border-radius:10px;
+  background:linear-gradient(180deg,#ffffff0d,#ffffff03);
+  padding:8px 6px;text-align:center;display:flex;flex-direction:column;gap:2px;
+}
+.plaque .lab{font-size:.75rem;color:var(--muted);letter-spacing:.12em}
+.plaque .val{font-family:var(--display);font-size:1.75rem;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--cream)}
+.plaque.low{border-color:var(--warn)}
+.plaque.low .val{color:var(--warn)}
+
+.tray{
+  position:relative;width:100%;max-width:100%;aspect-ratio:1/1;
+  padding:8px;border-radius:16px;
+  background:var(--velvet-deep);
+  border:2px solid var(--brass-dim);
+  box-shadow:0 0 0 4px var(--ink), 0 0 0 5px #e2b65c33, 0 18px 40px #00000099, inset 0 0 30px #000000aa;
+}
+.grid{
+  position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;
+  background:repeating-conic-gradient(var(--velvet) 0 25%, var(--velvet-deep) 0 50%) 0 0/25% 25%;
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;outline:none;
+}
+.gem{
+  position:absolute;left:0;top:0;width:12.5%;height:12.5%;
+  transform:translate(calc(var(--c) * 100%), calc(var(--r) * 100%));
+  transition:transform .28s cubic-bezier(.3,.75,.4,1);
+  will-change:transform;
+}
+.gem.noanim{transition:none}
+.gem .g{width:100%;height:100%;padding:9%;box-sizing:border-box;transition:transform .22s ease, opacity .22s ease, filter .2s}
+.gem svg{width:100%;height:100%;display:block;filter:drop-shadow(0 3px 2px #00000088)}
+.gem.sel .g{animation:pulse .7s ease-in-out infinite alternate;filter:brightness(1.25)}
+.gem.sel::before{content:"";position:absolute;inset:4%;border:2px solid var(--brass);border-radius:10px}
+.gem.hint .g{animation:bob .5s ease-in-out infinite alternate}
+.gem.pop .g{transform:scale(1.35) rotate(25deg);opacity:0;filter:brightness(2.2)}
+.cursor{
+  position:absolute;left:0;top:0;width:12.5%;height:12.5%;pointer-events:none;
+  transform:translate(calc(var(--c) * 100%), calc(var(--r) * 100%));
+  box-shadow:inset 0 0 0 2px var(--cream);border-radius:8px;opacity:0;
+}
+.grid:focus-visible .cursor{opacity:.9}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.12)}}
+@keyframes bob{from{transform:translateY(-6%) scale(1.05)}to{transform:translateY(6%) scale(.95)}}
+
+.float{
+  position:absolute;pointer-events:none;z-index:5;
+  font-family:var(--display);font-size:1.6rem;color:var(--cream);
+  text-shadow:0 0 6px var(--ink),0 2px 0 var(--ink);
+  transform:translate(-50%,-50%);animation:rise .9s ease-out forwards;white-space:nowrap;
+}
+.float.combo{color:var(--brass);font-size:2rem}
+@keyframes rise{from{opacity:1;transform:translate(-50%,-50%) scale(.8)}to{opacity:0;transform:translate(-50%,-160%) scale(1.15)}}
+
+.over{
+  position:absolute;inset:0;z-index:8;border-radius:14px;
+  background:#130b12e6;backdrop-filter:blur(3px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;
+}
+.over h2{margin:0;font-family:var(--display);font-weight:400;font-size:2.2rem;color:var(--brass)}
+.over .big{font-family:var(--display);font-size:3.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.over .note{color:var(--muted);margin:0}
+.over .rec{color:var(--brass);font-weight:700;margin:0}
+
+.tally{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.tally div{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0}
+.tally svg{width:30px;height:30px}
+.tally b{font-family:var(--display);font-weight:400;font-size:1.15rem;font-variant-numeric:tabular-nums}
+.tally span{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.tally-title{font-size:.75rem;color:var(--muted);letter-spacing:.12em;text-align:center;margin:0}
+
+.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+button{
+  font-family:var(--body);font-weight:700;font-size:1rem;color:var(--cream);
+  background:#ffffff0f;border:1px solid var(--brass-dim);border-radius:10px;
+  padding:11px 18px;cursor:pointer;min-width:92px;
+}
+button:hover{background:#ffffff1c}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+button.primary{background:var(--brass);color:var(--ink);border-color:var(--brass)}
+button.primary:hover{filter:brightness(1.08)}
+button:disabled{opacity:.45;cursor:default}
+
+.panel{position:fixed;inset:0;z-index:20;background:#000000aa;display:flex;align-items:center;justify-content:center;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.card{width:100%;max-width:380px;background:var(--velvet-deep);border:1px solid var(--brass-dim);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.card h2{margin:0;font-family:var(--display);font-weight:400;color:var(--brass);font-size:1.6rem}
+.card ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.card li{display:grid;grid-template-columns:2em 1fr auto;gap:8px;align-items:baseline;padding:6px 8px;border-radius:8px;background:#ffffff08}
+.card li .n{color:var(--muted);font-variant-numeric:tabular-nums}
+.card li .s{font-family:var(--display);font-size:1.2rem;font-variant-numeric:tabular-nums}
+.card li .d{color:var(--muted);font-size:.8rem}
+.card .empty{color:var(--muted);margin:0}
+.help{color:var(--muted);font-size:.85rem;text-align:center;margin:0;line-height:1.6}
+
+@media (max-width:420px){
+  h1{font-size:2rem}
+  .plaque .val{font-size:1.45rem}
+  button{min-width:0;padding:10px 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  .gem{transition-duration:.08s}
+  .gem.sel .g,.gem.hint .g{animation:none}
+  .float{animation-duration:.4s}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="defs"></defs></svg>
+
+<div class="wrap">
+  <header>
+    <h1><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#gem0"/></svg>보석 맞추기</h1>
+    <p class="sub">같은 보석 세 개 이상을 한 줄로 맞추세요. 이동은 20번입니다.</p>
+  </header>
+
+  <div class="hud">
+    <div class="plaque"><span class="lab">점수</span><span class="val" id="score">0</span></div>
+    <div class="plaque" id="movesBox"><span class="lab">남은 이동</span><span class="val" id="moves">20</span></div>
+    <div class="plaque"><span class="lab">내 최고 점수</span><span class="val" id="best">0</span></div>
+  </div>
+
+  <div class="tray" id="tray">
+    <div class="grid" id="grid" tabindex="0" aria-label="보석 판. 화살표로 이동, Enter로 선택">
+      <div class="cursor" id="cursor" style="--r:0;--c:0"></div>
+    </div>
+    <div class="over" id="over" hidden>
+      <h2>게임 끝</h2>
+      <div class="big" id="finalScore">0</div>
+      <p class="rec" id="newRec" hidden>새 최고 기록입니다!</p>
+      <p class="note" id="finalNote"></p>
+      <button class="primary" id="againBtn">다시 하기</button>
+    </div>
+  </div>
+
+  <p class="tally-title">모은 보석</p>
+  <div class="tally" id="tally"></div>
+
+  <div class="controls">
+    <button id="hintBtn">힌트</button>
+    <button id="recBtn">내 기록</button>
+    <button class="primary" id="newBtn">새 게임</button>
+  </div>
+  <p class="help">보석을 옆 칸으로 끌거나, 두 보석을 차례로 눌러 자리를 바꿉니다.<br>4개는 120점, 5개 이상은 200점, 연쇄가 이어질수록 점수가 배로 늘어납니다.</p>
+</div>
+
+<div class="panel" id="panel" hidden>
+  <div class="card" role="dialog" aria-labelledby="recTitle">
+    <h2 id="recTitle">내 기록</h2>
+    <ol id="recList"></ol>
+    <p class="empty" id="recEmpty" hidden>아직 끝낸 게임이 없습니다. 한 판 끝내면 여기에 점수가 남습니다.</p>
+    <p class="help" style="text-align:left">기록은 이 브라우저에만 저장됩니다.</p>
+    <button id="closeRec">닫기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 8, MOVES = 20;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = ms => new Promise(r => setTimeout(r, reduced ? Math.min(ms, 90) : ms));
+
+  // ---------- gem art ----------
+  const poly = (n, rot, rx, ry) => Array.from({length:n}, (_, i) => {
+    const a = rot + i * 2 * Math.PI / n;
+    return [50 + rx * Math.cos(a), 50 + ry * Math.sin(a)];
+  });
+  const GEMS = [
+    {name:'루비',     base:'#e3283a', light:'#ff9aa0', dark:'#6e0915', pts:[[50,5],[93,50],[50,95],[7,50]]},
+    {name:'토파즈',   base:'#f0b02a', light:'#ffe9a0', dark:'#7d500a', pts:poly(6, 0, 46, 42)},
+    {name:'에메랄드', base:'#27c653', light:'#a8ffbe', dark:'#0a5c24', pts:[[50,7],[95,87],[5,87]]},
+    {name:'자수정',   base:'#9447e6', light:'#dcb4ff', dark:'#40107a', pts:poly(8, Math.PI/8, 45, 45)},
+    {name:'사파이어', base:'#2b74ec', light:'#a6ccff', dark:'#0b3380', pts:[[25,17],[75,17],[95,40],[50,93],[5,40]]},
+    {name:'투르말린', base:'#e8399f', light:'#ffb0dc', dark:'#6e0b48', pts:poly(10, 0, 45, 45)},
+  ];
+  const T = GEMS.length;
+  const P = p => p.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
+  let defs = '';
+  GEMS.forEach((g, t) => {
+    const cx = g.pts.reduce((s, p) => s + p[0], 0) / g.pts.length;
+    const cy = g.pts.reduce((s, p) => s + p[1], 0) / g.pts.length;
+    const inner = g.pts.map(p => [cx + (p[0] - cx) * .52, cy - 2 + (p[1] - cy) * .52]);
+    let facets = '';
+    for (let i = 0; i < g.pts.length; i++) {
+      const j = (i + 1) % g.pts.length;
+      const mx = (g.pts[i][0] + g.pts[j][0]) / 2 - cx, my = (g.pts[i][1] + g.pts[j][1]) / 2 - cy;
+      const len = Math.hypot(mx, my) || 1;
+      const dot = (mx * -0.6 + my * -0.8) / len;
+      const fill = dot > 0 ? '#fff' : '#000';
+      const op = (Math.abs(dot) * 0.42).toFixed(2);
+      facets += `<polygon points="${P([g.pts[i], g.pts[j], inner[j], inner[i]])}" fill="${fill}" fill-opacity="${op}"/>`;
+    }
+    const lines = g.pts.map((p, i) => `<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${inner[i][0].toFixed(1)}" y2="${inner[i][1].toFixed(1)}"/>`).join('');
+    const gx = inner[0] && Math.min(...inner.map(p => p[0])), gy = Math.min(...inner.map(p => p[1]));
+    defs += `
+      <linearGradient id="gb${t}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${g.light}"/><stop offset=".45" stop-color="${g.base}"/><stop offset="1" stop-color="${g.dark}"/></linearGradient>
+      <linearGradient id="gt${t}" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="${g.light}"/><stop offset="1" stop-color="${g.base}"/></linearGradient>
+      <symbol id="gem${t}" viewBox="0 0 100 100">
+        <polygon points="${P(g.pts)}" fill="url(#gb${t})"/>
+        ${facets}
+        <polygon points="${P(inner)}" fill="url(#gt${t})"/>
+        <g stroke="#fff" stroke-opacity=".28" stroke-width="1">${lines}</g>
+        <polygon points="${P(inner)}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.2"/>
+        <polygon points="${P(g.pts)}" fill="none" stroke="${g.dark}" stroke-width="2.4" stroke-linejoin="round"/>
+        <ellipse cx="${(gx + 9).toFixed(1)}" cy="${(gy + 8).toFixed(1)}" rx="7" ry="3.6" transform="rotate(-35 ${(gx + 9).toFixed(1)} ${(gy + 8).toFixed(1)})" fill="#fff" fill-opacity=".75"/>
+      </symbol>`;
+  });
+  document.getElementById('defs').innerHTML = defs;
+
+  // ---------- state ----------
+  const grid = document.getElementById('grid');
+  const tray = document.getElementById('tray');
+  const cursorEl = document.getElementById('cursor');
+  const $ = id => document.getElementById(id);
+  let board = [], score = 0, moves = MOVES, tally = new Array(T).fill(0);
+  let busy = false, over = false, sel = null, hintTimer = null, cur = {r:0, c:0};
+  let uid = 0;
+
+  const rnd = () => Math.floor(Math.random() * T);
+  function makeEl(t, r, c, startRow) {
+    const el = document.createElement('div');
+    el.className = 'gem noanim';
+    el.innerHTML = `<div class="g"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#gem${t}"/></svg></div>`;
+    el.style.setProperty('--c', c);
+    el.style.setProperty('--r', startRow ?? r);
+    grid.appendChild(el);
+    const g = {t, el, id: ++uid};
+    if (startRow !== undefined && startRow !== r) {
+      el.offsetWidth; // flush start position
+      el.classList.remove('noanim');
+      el.style.setProperty('--r', r);
+    } else {
+      requestAnimationFrame(() => el.classList.remove('noanim'));
+    }
+    return g;
+  }
+  function setPos(g, r, c) { g.el.style.setProperty('--r', r); g.el.style.setProperty('--c', c); }
+
+  // ---------- rules ----------
+  function typeAt(b, r, c) { return b[r] && b[r][c] ? (typeof b[r][c] === 'number' ? b[r][c] : b[r][c].t) : -1; }
+
+  function findMatches(b = board) {
+    const cells = new Set(), runs = [];
+    for (let r = 0; r < N; r++) {
+      let s = 0;
+      for (let c = 1; c <= N; c++) {
+        if (c < N && typeAt(b, r, c) === typeAt(b, r, s) && typeAt(b, r, s) >= 0) continue;
+        if (c - s >= 3) { const run = []; for (let k = s; k < c; k++) { run.push([r, k]); cells.add(r + ',' + k); } runs.push(run); }
+        s = c;
+      }
+    }
+    for (let c = 0; c < N; c++) {
+      let s = 0;
+      for (let r = 1; r <= N; r++) {
+        if (r < N && typeAt(b, r, c) === typeAt(b, s, c) && typeAt(b, s, c) >= 0) continue;
+        if (r - s >= 3) { const run = []; for (let k = s; k < r; k++) { run.push([k, c]); cells.add(k + ',' + c); } runs.push(run); }
+        s = r;
+      }
+    }
+    return {cells, runs};
+  }
+
+  function findMove(b = board) {
+    const types = b.map(row => row.map(g => typeof g === 'number' ? g : g.t));
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      for (const [dr, dc] of [[0,1],[1,0]]) {
+        const r2 = r + dr, c2 = c + dc;
+        if (r2 >= N || c2 >= N) continue;
+        [types[r][c], types[r2][c2]] = [types[r2][c2], types[r][c]];
+        const ok = findMatches(types).cells.size > 0;
+        [types[r][c], types[r2][c2]] = [types[r2][c2], types[r][c]];
+        if (ok) return [[r, c], [r2, c2]];
+      }
+    }
+    return null;
+  }
+
+  function freshTypes() {
+    for (;;) {
+      const b = [];
+      for (let r = 0; r < N; r++) {
+        b.push([]);
+        for (let c = 0; c < N; c++) {
+          let t;
+          do { t = rnd(); } while (
+            (c >= 2 && b[r][c-1] === t && b[r][c-2] === t) ||
+            (r >= 2 && b[r-1][c] === t && b[r-2][c] === t));
+          b[r].push(t);
+        }
+      }
+      if (findMove(b)) return b;
+    }
+  }
+
+  function buildBoard(types, drop) {
+    grid.querySelectorAll('.gem').forEach(e => e.remove());
+    board = types.map((row, r) => row.map((t, c) => makeEl(t, r, c, drop ? r - N - 1 : undefined)));
+  }
+
+  // ---------- HUD ----------
+  let best = 0;
+  function loadRecords() { try { return JSON.parse(localStorage.getItem('jewel-records') || '[]'); } catch { return []; } }
+  function saveRecords(list) { try { localStorage.setItem('jewel-records', JSON.stringify(list)); } catch {} }
+  best = loadRecords().reduce((m, x) => Math.max(m, x.score), 0);
+
+  function renderTally() {
+    $('tally').innerHTML = GEMS.map((g, t) =>
+      `<div><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#gem${t}"/></svg><b>${tally[t]}</b><span>${g.name}</span></div>`).join('');
+  }
+  function hud() {
+    $('score').textContent = score.toLocaleString('ko-KR');
+    $('moves').textContent = moves;
+    $('best').textContent = Math.max(best, 0).toLocaleString('ko-KR');
+    $('movesBox').classList.toggle('low', moves <= 5);
+    $('hintBtn').disabled = over;
+    renderTally();
+  }
+
+  function floatText(text, x, y, cls) {
+    const f = document.createElement('div');
+    f.className = 'float' + (cls ? ' ' + cls : '');
+    f.textContent = text;
+    f.style.left = x + '%'; f.style.top = y + '%';
+    tray.appendChild(f);
+    setTimeout(() => f.remove(), 950);
+  }
+
+  // ---------- play ----------
+  function clearSel() { if (sel) board[sel[0]][sel[1]]?.el.classList.remove('sel'); sel = null; }
+  function clearHint() {
+    clearTimeout(hintTimer);
+    grid.querySelectorAll('.gem.hint').forEach(e => e.classList.remove('hint'));
+  }
+  function swapCells(a, b) {
+    const ga = board[a[0]][a[1]], gb = board[b[0]][b[1]];
+    board[a[0]][a[1]] = gb; board[b[0]][b[1]] = ga;
+    setPos(gb, a[0], a[1]); setPos(ga, b[0], b[1]);
+  }
+  const adjacent = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1;
+
+  async function trySwap(a, b) {
+    if (busy || over || !adjacent(a, b)) return;
+    busy = true; clearSel(); clearHint();
+    swapCells(a, b);
+    await wait(240);
+    if (!findMatches().cells.size) {
+      swapCells(a, b);
+      await wait(240);
+      busy = false;
+      return;
+    }
+    moves--; hud();
+    await resolve();
+    if (moves <= 0) gameOver();
+    else if (!findMove()) await reshuffle();
+    busy = false;
+  }
+
+  async function resolve() {
+    let combo = 1;
+    for (;;) {
+      const {cells, runs} = findMatches();
+      if (!cells.size) break;
+      let gained = 0;
+      for (const run of runs) gained += run.length >= 5 ? 200 : run.length === 4 ? 120 : 60;
+      gained *= combo;
+      score += gained;
+      let sx = 0, sy = 0;
+      cells.forEach(k => {
+        const [r, c] = k.split(',').map(Number);
+        const g = board[r][c];
+        tally[g.t]++;
+        g.el.classList.add('pop');
+        sx += c; sy += r;
+      });
+      const x = (sx / cells.size + .5) * 12.5, y = (sy / cells.size + .5) * 12.5;
+      floatText('+' + gained, x, y);
+      if (combo > 1) floatText('연쇄 ×' + combo, 50, Math.max(14, y - 14), 'combo');
+      hud();
+      await wait(240);
+      cells.forEach(k => {
+        const [r, c] = k.split(',').map(Number);
+        board[r][c].el.remove();
+        board[r][c] = null;
+      });
+      collapse();
+      await wait(330);
+      combo++;
+    }
+  }
+
+  function collapse() {
+    for (let c = 0; c < N; c++) {
+      let w = N - 1;
+      for (let r = N - 1; r >= 0; r--) {
+        const g = board[r][c];
+        if (!g) continue;
+        if (r !== w) { board[w][c] = g; board[r][c] = null; setPos(g, w, c); }
+        w--;
+      }
+      const missing = w + 1;
+      for (let r = w; r >= 0; r--) board[r][c] = makeEl(rnd(), r, c, r - missing);
+    }
+  }
+
+  async function reshuffle() {
+    floatText('섞는 중', 50, 50, 'combo');
+    await wait(500);
+    buildBoard(freshTypes(), true);
+    await wait(350);
+  }
+
+  function gameOver() {
+    over = true; clearSel(); clearHint();
+    const list = loadRecords();
+    const isBest = score > 0 && score > best;
+    list.push({score, date: new Date().toISOString()});
+    list.sort((a, b) => b.score - a.score);
+    saveRecords(list.slice(0, 10));
+    if (isBest) best = score;
+    $('finalScore').textContent = score.toLocaleString('ko-KR');
+    $('newRec').hidden = !isBest;
+    const top = tally.indexOf(Math.max(...tally));
+    $('finalNote').textContent = `보석 ${tally.reduce((a, b) => a + b, 0)}개를 모았습니다. 가장 많이 모은 보석은 ${GEMS[top].name}(${tally[top]}개)입니다.`;
+    $('over').hidden = false;
+    hud();
+    $('againBtn').focus();
+  }
+
+  function newGame() {
+    clearHint(); sel = null;
+    score = 0; moves = MOVES; tally = new Array(T).fill(0); over = false; busy = false;
+    $('over').hidden = true;
+    buildBoard(freshTypes(), true);
+    hud();
+  }
+
+  function showHint() {
+    if (busy || over) return;
+    clearHint();
+    const m = findMove();
+    if (!m) return;
+    m.forEach(([r, c]) => board[r][c].el.classList.add('hint'));
+    hintTimer = setTimeout(clearHint, 2200);
+  }
+
+  // ---------- input ----------
+  function cellAt(x, y) {
+    const rc = grid.getBoundingClientRect();
+    const c = Math.floor((x - rc.left) / rc.width * N), r = Math.floor((y - rc.top) / rc.height * N);
+    return r >= 0 && r < N && c >= 0 && c < N ? [r, c] : null;
+  }
+  function tap(cell) {
+    if (busy || over) return;
+    if (sel && adjacent(sel, cell)) { trySwap(sel, cell); return; }
+    if (sel && sel[0] === cell[0] && sel[1] === cell[1]) { clearSel(); return; }
+    clearSel();
+    sel = cell;
+    board[cell[0]][cell[1]].el.classList.add('sel');
+  }
+  let drag = null;
+  grid.addEventListener('pointerdown', e => {
+    const cell = cellAt(e.clientX, e.clientY);
+    if (!cell) return;
+    drag = {x: e.clientX, y: e.clientY, cell, moved: false};
+    try { grid.setPointerCapture(e.pointerId); } catch {}
+  });
+  grid.addEventListener('pointermove', e => {
+    if (!drag || drag.moved) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const th = grid.getBoundingClientRect().width / N * .35;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < th) return;
+    drag.moved = true;
+    const [r, c] = drag.cell;
+    const target = Math.abs(dx) > Math.abs(dy) ? [r, c + Math.sign(dx)] : [r + Math.sign(dy), c];
+    if (target[0] >= 0 && target[0] < N && target[1] >= 0 && target[1] < N) trySwap(drag.cell, target);
+  });
+  grid.addEventListener('pointerup', () => {
+    if (drag && !drag.moved) tap(drag.cell);
+    drag = null;
+  });
+  grid.addEventListener('pointercancel', () => { drag = null; });
+
+  function moveCursor(dr, dc) {
+    cur.r = Math.min(N - 1, Math.max(0, cur.r + dr));
+    cur.c = Math.min(N - 1, Math.max(0, cur.c + dc));
+    cursorEl.style.setProperty('--r', cur.r); cursorEl.style.setProperty('--c', cur.c);
+  }
+  grid.addEventListener('keydown', e => {
+    const k = {ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1]}[e.key];
+    if (k) { e.preventDefault(); moveCursor(k[0], k[1]); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap([cur.r, cur.c]); }
+    else if (e.key === 'Escape') clearSel();
+  });
+
+  $('newBtn').addEventListener('click', newGame);
+  $('againBtn').addEventListener('click', newGame);
+  $('hintBtn').addEventListener('click', showHint);
+  $('recBtn').addEventListener('click', () => {
+    const list = loadRecords();
+    $('recList').innerHTML = list.map((x, i) => {
+      const d = new Date(x.date);
+      const ds = isNaN(d) ? '' : `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return `<li><span class="n">${i + 1}</span><span class="s">${x.score.toLocaleString('ko-KR')}점</span><span class="d">${ds}</span></li>`;
+    }).join('');
+    $('recEmpty').hidden = list.length > 0;
+    $('panel').hidden = false;
+    $('closeRec').focus();
+  });
+  $('closeRec').addEventListener('click', () => { $('panel').hidden = true; });
+  $('panel').addEventListener('click', e => { if (e.target.id === 'panel') $('panel').hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('panel').hidden = true; });
+
+  // ---------- start (keeps an in-progress game across page updates) ----------
+  function snapshot() {
+    return {types: board.map(row => row.map(g => g ? g.t : rnd())), score, moves, tally, over};
+  }
+  function start(data) {
+    const d = data || {};
+    if (Array.isArray(d.types) && d.types.length === N && !d.over && d.moves > 0) {
+      score = d.score || 0; moves = d.moves; tally = Array.isArray(d.tally) && d.tally.length === T ? d.tally : new Array(T).fill(0);
+      buildBoard(d.types, false);
+      if (findMatches().cells.size || !findMove()) buildBoard(freshTypes(), false);
+      hud();
+    } else newGame();
+  }
+  try { window.claude?.hot?.snapshot?.(snapshot); } catch {}
+  if (window.claude?.hot?.ready) window.claude.hot.ready(start);
+  else start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</html>
